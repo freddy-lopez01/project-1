@@ -15,6 +15,9 @@
 
 import config    # Configure from .ini files and command line
 import logging   # Better than print statements
+import os 
+from os import path
+
 logging.basicConfig(format='%(levelname)s:%(message)s',
                     level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -58,7 +61,6 @@ def serve(sock, func):
         (clientsocket, address) = sock.accept()
         _thread.start_new_thread(func, (clientsocket,))
 
-
 ##
 # Starter version only serves cat pictures. In fact, only a
 # particular cat picture.  This one.
@@ -67,6 +69,17 @@ CAT = """
      ^ ^
    =(   )=
 """
+
+NOT_FOUND = """
+      - - 
+      ___  file dosnt exist
+"""
+
+
+ILLEGAL = """
+     Dont use ~ or .. in page request name. duh 
+"""
+
 
 # HTTP response codes, as the strings we will actually send.
 # See:  https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
@@ -89,10 +102,44 @@ def respond(sock):
     log.info("--- Received request ----")
     log.info("Request was {}\n***\n".format(request))
 
+
     parts = request.split()
+
+    cwd = os.getcwd()
+
     if len(parts) > 1 and parts[0] == "GET":
         transmit(STATUS_OK, sock)
-        transmit(CAT, sock)
+
+        merge = (cwd+parts[1])
+        #print("PATH: {0}".format(merge))
+        #print(parts[1])
+        if parts[1].startswith('/..') or parts[1].startswith("/~"):
+            '''
+            If the file requested starts with any illegal characters, the 
+            error code STATUS_FORBIDDEN is trasmitted along with my personalized
+            error statement 
+            '''
+            transmit(STATUS_FORBIDDEN, sock)
+            transmit(ILLEGAL, sock)
+
+        elif path.exists(merge):
+            ''' 
+            If the file exists in the CWD, transmit STATUS_OK and 
+            transmit contects of file to client and all is well 
+            '''
+            file_read = open(merge, "r")
+            #transmit(STATUS_OK, sock)
+            transmit(file_read.read(), sock)
+
+        elif path.exists(merge) == False:
+            '''
+            If the file does not exist in the CWD, the error code 
+            STATUS_NOT_FOUND is transmitted along with my NOT_FOUND
+            ASCII picture of a annoyed face 
+            '''
+            transmit(STATUS_NOT_FOUND, sock)
+            transmit(NOT_FOUND, sock)
+
     else:
         log.info("Unhandled request: {}".format(request))
         transmit(STATUS_NOT_IMPLEMENTED, sock)
@@ -138,11 +185,18 @@ def get_options():
 def main():
     options = get_options()
     port = options.PORT
+    DOC_root = options.DOCROOT
     if options.DEBUG:
         log.setLevel(logging.DEBUG)
     sock = listen(port)
     log.info("Listening on port {}".format(port))
     log.info("Socket is {}".format(sock))
+    #print(DOC_root)
+
+    #print("cwd: {0}".format(os.getcwd()))
+    cwd = os.getcwd()
+    ncwd = os.chdir(str(cwd) +"/"+DOC_root)
+    #print(ncwd)
     serve(sock, respond)
 
 
