@@ -108,12 +108,21 @@ def respond(sock):
     cwd = os.getcwd()
 
     if len(parts) > 1 and parts[0] == "GET":
-        transmit(STATUS_OK, sock)
+        #transmit(STATUS_OK, sock)
 
         merge = (cwd+parts[1])
         #print("PATH: {0}".format(merge))
         #print(parts[1])
-        if parts[1].startswith('/..') or parts[1].startswith("/~"):
+        if path.exists(merge):
+            ''' 
+            If the file exists in the CWD, transmit STATUS_OK and 
+            transmit contects of file to client and all is well 
+            '''
+            file_read = open(merge, "r")
+            transmit(STATUS_OK, sock)
+            transmit(file_read.read(), sock)
+
+        elif parts[1].startswith('/..') or parts[1].startswith("/~"):
             '''
             If the file requested starts with any illegal characters, the 
             error code STATUS_FORBIDDEN is trasmitted along with my personalized
@@ -121,15 +130,6 @@ def respond(sock):
             '''
             transmit(STATUS_FORBIDDEN, sock)
             transmit(ILLEGAL, sock)
-
-        elif path.exists(merge):
-            ''' 
-            If the file exists in the CWD, transmit STATUS_OK and 
-            transmit contects of file to client and all is well 
-            '''
-            file_read = open(merge, "r")
-            #transmit(STATUS_OK, sock)
-            transmit(file_read.read(), sock)
 
         elif path.exists(merge) == False:
             '''
